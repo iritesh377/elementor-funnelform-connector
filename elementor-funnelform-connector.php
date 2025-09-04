@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Elementor → FunnelForm Connector
  * Description: Connect Elementor form submissions with FunnelForm surveys using a unique token.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: Ritesh Sapkota
  * Author URI: https://saliksapkota.com.np
  * License: GPLv2 or later
@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'EFC_VERSION', '1.1.0' );
+define( 'EFC_VERSION', '1.2.0' );
 define( 'EFC_PATH', plugin_dir_path( __FILE__ ) );
 define( 'EFC_URL', plugin_dir_url( __FILE__ ) );
 
@@ -142,29 +142,141 @@ function efc_lead_view() {
 
     echo '<div class="wrap">';
     echo '<h1>Submission Detail</h1>';
+    echo '<p><strong>Submission ID:</strong> ' . esc_html($submission_id) . '</p>';
+    echo '<p><strong>Submitted At:</strong> ' . esc_html($lead->created_at) . '</p>';
 
     // Elementor data table
-    echo '<h2>Elementor Data</h2><table class="widefat striped">';
-    foreach ($elementor_data as $key => $value) {
-        $label = $elementor_labels[$key] ?? $key;
-        $display = is_array($value) ? implode(', ', $value) : $value;
-        echo "<tr><th>{$label}</th><td>{$display}</td></tr>";
+    echo '<h2>Elementor Data (Landing Page Form)</h2>';
+    if (!empty($elementor_data)) {
+        echo '<table class="widefat striped">';
+        foreach ($elementor_data as $key => $value) {
+            $label = $elementor_labels[$key] ?? ucfirst(str_replace('_', ' ', $key));
+            $display = is_array($value) ? implode(', ', $value) : esc_html($value);
+            echo "<tr><th style='width: 200px;'>{$label}</th><td>{$display}</td></tr>";
+        }
+        echo '</table>';
+    } else {
+        echo '<p>No Elementor data available.</p>';
     }
-    echo '</table>';
 
     // FunnelForm data table
-    echo '<h2>FunnelForm Data</h2>';
+    echo '<h2>FunnelForm Data (Survey Responses)</h2>';
     if (!empty($funnelform_data)) {
-        echo '<table class="widefat striped"><thead><tr><th>Field / Question</th><th>Answer</th></tr></thead><tbody>';
-        foreach ($funnelform_data as $key => $value) {
-            $display = is_array($value) ? implode(', ', $value) : $value;
-            echo "<tr><td>{$key}</td><td>{$display}</td></tr>";
+        
+        // Check if we have the questions data in the expected format
+        if (isset($funnelform_data['questions']) && is_array($funnelform_data['questions'])) {
+            echo '<table class="widefat striped"><thead><tr><th style="width: 60%;">Question</th><th style="width: 40%;">Answer</th></tr></thead><tbody>';
+            
+            foreach ($funnelform_data['questions'] as $question => $answer) {
+                // Clean up the question text
+                $clean_question = trim($question);
+                $clean_question = str_replace(["\n", "\t"], ' ', $clean_question);
+                $clean_question = preg_replace('/\s+/', ' ', $clean_question);
+                
+                // Format the answer
+                $formatted_answer = is_array($answer) ? implode(', ', $answer) : $answer;
+                $formatted_answer = esc_html($formatted_answer);
+                
+                // Skip empty questions or vendor pitch questions (those that are just promotional text)
+                if (empty(trim($clean_question)) || empty(trim($formatted_answer))) {
+                    continue;
+                }
+                
+                echo "<tr>";
+                echo "<td style='vertical-align: top; padding: 12px;'><strong>" . esc_html($clean_question) . "</strong></td>";
+                echo "<td style='vertical-align: top; padding: 12px;'>" . $formatted_answer . "</td>";
+                echo "</tr>";
+            }
+            
+            echo '</tbody></table>';
+        } 
+        // Fallback: check if we have all_questions_by_id format
+        elseif (isset($funnelform_data['all_questions_by_id']) && is_array($funnelform_data['all_questions_by_id'])) {
+            echo '<table class="widefat striped"><thead><tr><th style="width: 60%;">Question</th><th style="width: 40%;">Answer</th></tr></thead><tbody>';
+            
+            foreach ($funnelform_data['all_questions_by_id'] as $id => $qa_data) {
+                if (isset($qa_data['question']) && isset($qa_data['answer'])) {
+                    $clean_question = trim($qa_data['question']);
+                    $clean_question = str_replace(["\n", "\t"], ' ', $clean_question);
+                    $clean_question = preg_replace('/\s+/', ' ', $clean_question);
+                    
+                    $formatted_answer = is_array($qa_data['answer']) ? implode(', ', $qa_data['answer']) : $qa_data['answer'];
+                    $formatted_answer = esc_html($formatted_answer);
+                    
+                    // Skip empty questions or answers
+                    if (empty(trim($clean_question)) || empty(trim($formatted_answer))) {
+                        continue;
+                    }
+                    
+                    echo "<tr>";
+                    echo "<td style='vertical-align: top; padding: 12px;'><strong>" . esc_html($clean_question) . "</strong></td>";
+                    echo "<td style='vertical-align: top; padding: 12px;'>" . $formatted_answer . "</td>";
+                    echo "</tr>";
+                }
+            }
+            
+            echo '</tbody></table>';
         }
-        echo '</tbody></table>';
+        // Last fallback: display raw data in a more organized way
+        else {
+            echo '<h3>Raw FunnelForm Data:</h3>';
+            echo '<div style="background: #f9f9f9; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">';
+            
+            // Display key sections if they exist
+            $sections_to_show = [
+                'form_id' => 'Form ID',
+                'lead_id' => 'Lead ID', 
+                'lead_timestamp' => 'Lead Timestamp'
+            ];
+            
+            foreach ($sections_to_show as $key => $label) {
+                if (isset($funnelform_data[$key])) {
+                    echo "<p><strong>{$label}:</strong> " . esc_html($funnelform_data[$key]) . "</p>";
+                }
+            }
+            
+            // Show the full JSON in a collapsible section
+            echo '<details style="margin-top: 15px;">';
+            echo '<summary style="cursor: pointer; font-weight: bold;">View Full JSON Data</summary>';
+            echo '<pre style="background: white; padding: 10px; margin-top: 10px; border: 1px solid #ccc; max-height: 400px; overflow-y: auto;">';
+            echo esc_html(json_encode($funnelform_data, JSON_PRETTY_PRINT));
+            echo '</pre>';
+            echo '</details>';
+            echo '</div>';
+        }
     } else {
-        echo '<p>No FunnelForm data submitted yet.</p>';
+        echo '<p><em>No FunnelForm data submitted yet.</em></p>';
     }
 
-    echo '<p><a href="' . admin_url('admin.php?page=efc-leads') . '" class="button button-secondary">&laquo; Back to Leads List</a></p>';
+    // Add some additional info if available
+    if (!empty($funnelform_data)) {
+        echo '<h3>Survey Summary</h3>';
+        echo '<div style="background: #f0f0f1; padding: 15px; border-left: 4px solid #0073aa; margin: 20px 0;">';
+        
+        if (isset($funnelform_data['form_id'])) {
+            echo '<p><strong>Form ID:</strong> ' . esc_html($funnelform_data['form_id']) . '</p>';
+        }
+        if (isset($funnelform_data['lead_id'])) {
+            echo '<p><strong>Lead ID:</strong> ' . esc_html($funnelform_data['lead_id']) . '</p>';
+        }
+        if (isset($funnelform_data['lead_timestamp'])) {
+            echo '<p><strong>Survey Completed:</strong> ' . esc_html($funnelform_data['lead_timestamp']) . '</p>';
+        }
+        
+        // Count the number of questions answered
+        $question_count = 0;
+        if (isset($funnelform_data['questions'])) {
+            $question_count = count(array_filter($funnelform_data['questions'], function($answer) {
+                return !empty(trim($answer));
+            }));
+        }
+        if ($question_count > 0) {
+            echo '<p><strong>Questions Answered:</strong> ' . $question_count . '</p>';
+        }
+        
+        echo '</div>';
+    }
+
+    echo '<p style="margin-top: 30px;"><a href="' . admin_url('admin.php?page=efc-leads') . '" class="button button-secondary">&laquo; Back to Leads List</a></p>';
     echo '</div>';
 }

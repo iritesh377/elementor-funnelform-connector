@@ -79,12 +79,14 @@ class EFC_Handler {
             if (!empty($query_params['submission_id'])) {
                 $submission_id = sanitize_text_field($query_params['submission_id']);
                 file_put_contents($log_file, "submission_id from query: {$submission_id}\n", FILE_APPEND);
+
             } elseif (!empty($json_data['query_string'])) {
                 parse_str($json_data['query_string'], $qs_params);
                 if (!empty($qs_params['submission_id'])) {
                     $submission_id = sanitize_text_field($qs_params['submission_id']);
                     file_put_contents($log_file, "submission_id from query_string: {$submission_id}\n", FILE_APPEND);
                 }
+
             } elseif (!empty($json_data['url'])) {
                 $parsed_url = parse_url($json_data['url']);
                 if (!empty($parsed_url['query'])) {
@@ -92,6 +94,23 @@ class EFC_Handler {
                     if (!empty($url_params['submission_id'])) {
                         $submission_id = sanitize_text_field($url_params['submission_id']);
                         file_put_contents($log_file, "submission_id from url: {$submission_id}\n", FILE_APPEND);
+                    }
+                }
+
+            } elseif (!empty($json_data['analytics_data']['query_string'])) {
+                parse_str($json_data['analytics_data']['query_string'], $qs_params);
+                if (!empty($qs_params['submission_id'])) {
+                    $submission_id = sanitize_text_field($qs_params['submission_id']);
+                    file_put_contents($log_file, "submission_id from analytics_data.query_string: {$submission_id}\n", FILE_APPEND);
+                }
+
+            } elseif (!empty($json_data['analytics_data']['url'])) {
+                $parsed_url = parse_url($json_data['analytics_data']['url']);
+                if (!empty($parsed_url['query'])) {
+                    parse_str($parsed_url['query'], $url_params);
+                    if (!empty($url_params['submission_id'])) {
+                        $submission_id = sanitize_text_field($url_params['submission_id']);
+                        file_put_contents($log_file, "submission_id from analytics_data.url: {$submission_id}\n", FILE_APPEND);
                     }
                 }
             }
